@@ -104,7 +104,7 @@ jobs:
       run: |
         mkdir -p dtbo_output
         find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtbo" -exec cp {} dtbo_output/ \;
-        git clone https://android.googlesource.com/platform/system/libufdt tools/ufdt
+        git clone https://android.googlesource.com/platform/system/libufdt -b android-15.0.0_r30 tools/ufdt
         chmod +x tools/ufdt/utils/src/mkdtboimg.py
         python3 tools/ufdt/utils/src/mkdtboimg.py create dtbo.img dtbo_output/*.dtbo --page_size=4096
         mv dtbo.img anykernel3/
