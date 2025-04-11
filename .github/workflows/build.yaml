@@ -19,26 +19,27 @@ jobs:
         sudo apt-get install -y \
           bc bison build-essential cpio curl flex git \
           kmod libssl-dev libncurses5-dev libelf-dev \
-          python3 unzip wget xz-utils gcc make binutils clang
+          python3 unzip wget xz-utils
 
     - name: Clone Proton Clang
       run: |
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang proton-clang
 
-    - name: Set environment variables
+    - name: Export environment variables
       run: |
-        echo "PATH=$HOME/proton-clang/bin:$PATH" >> $GITHUB_ENV
+        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
         echo "ARCH=arm64" >> $GITHUB_ENV
         echo "SUBARCH=arm64" >> $GITHUB_ENV
 
-    - name: Generate defconfig & build host tools
+    - name: Generate defconfig (use system GCC for host tools)
       run: |
-        make O=out realme_defconfig
-        make O=out HOSTCC=gcc HOSTLD=ld scripts_basic
+        make O=out ARCH=arm64 SUBARCH=arm64 realme_defconfig
 
-    - name: Build kernel
+    - name: Build kernel with Proton Clang
       run: |
         make -j$(nproc) O=out \
+          ARCH=arm64 \
+          SUBARCH=arm64 \
           CC=clang \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
