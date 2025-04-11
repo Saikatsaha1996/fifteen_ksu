@@ -16,9 +16,12 @@ jobs:
     - name: Set up environment
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential cpio curl flex git kmod libssl-dev libncurses5-dev libelf-dev python3 unzip wget xz-utils
+        sudo apt-get install -y \
+          bc bison build-essential cpio curl flex git kmod \
+          libssl-dev libncurses5-dev libelf-dev python3 \
+          unzip wget xz-utils
 
-    - name: Clone toolchain
+    - name: Clone Proton Clang toolchain
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
@@ -27,10 +30,11 @@ jobs:
         export PATH="$PWD/clang/bin:$PATH"
         export ARCH=arm64
         export SUBARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export CLANG_TRIPLE=aarch64-linux-gnu-
 
+        # Step 1: Build config and host tools (no CC override here)
         make O=out realme_defconfig
+
+        # Step 2: Build kernel with Clang
         make -j$(nproc) O=out \
           CC=clang \
           LD=ld.lld \
@@ -38,9 +42,11 @@ jobs:
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip
+          STRIP=llvm-strip \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CLANG_TRIPLE=aarch64-linux-gnu-
 
-    - name: Upload zImage or Image.gz-dtb
+    - name: Upload kernel Image
       uses: actions/upload-artifact@v4
       with:
         name: Kernel
