@@ -56,23 +56,45 @@ jobs:
     - name: Install kernel modules
       run: |
         mkdir -p modules_tmp
+          ARCH=arm64 \
+          SUBARCH=arm64 \
+          CC=$GITHUB_WORKSPACE/proton-clang/bin/clang \
+          CROSS_COMPILE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/proton-clang/bin/arm-linux-gnueabi- \
+          CLANG_TRIPLE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          AR=$GITHUB_WORKSPACE/proton-clang/bin/llvm-ar \
+          NM=$GITHUB_WORKSPACE/proton-clang/bin/llvm-nm \
+          OBJCOPY=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objcopy \
+          OBJDUMP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objdump \
+          STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
+          LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
         make O=out INSTALL_MOD_PATH=$PWD/modules_tmp modules_install
-        find modules_tmp/lib/modules/ -name "*.ko" -exec strip --strip-unneeded {} \;
+
+        # Flatten .ko files and strip only ELF-valid ones
+        mkdir -p flat_ko
+        find modules_tmp/lib/modules/ -name "*.ko" | while read -r module; do
+          if file "$module" | grep -q "ELF"; then
+            $GITHUB_WORKSPACE/proton-clang/bin/llvm-strip --strip-unneeded "$module"
+          fi
+          cp "$module" flat_ko/
+        done
 
     - name: Prepare AnyKernel3 directory
       run: |
         git clone --depth=1 https://github.com/Saikatsaha1996/AnyKernel3 anykernel3
         mkdir -p anykernel3/modules/vendor/lib/modules
         mkdir -p anykernel3/modules/vendor_dlkm/lib/modules
+
         MODDIR=$(find modules_tmp/lib/modules/ -type d -name "*")
-        cp -av $MODDIR/*.ko anykernel3/modules/vendor/lib/modules/
+
+        # Copy flattened modules and metadata
+        cp -av flat_ko/*.ko anykernel3/modules/vendor/lib/modules/
         cp -av $MODDIR/modules.dep anykernel3/modules/vendor/lib/modules/
         cp -av $MODDIR/modules.order anykernel3/modules/vendor/lib/modules/
 
-        cp -av $MODDIR/*.ko anykernel3/modules/vendor_dlkm/lib/modules/
+        cp -av flat_ko/*.ko anykernel3/modules/vendor_dlkm/lib/modules/
         cp -av $MODDIR/modules.dep anykernel3/modules/vendor_dlkm/lib/modules/
         cp -av $MODDIR/modules.order anykernel3/modules/vendor_dlkm/lib/modules/
-        
 
     - name: Copy kernel, dtb to AnyKernel3
       run: |
