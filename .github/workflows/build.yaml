@@ -17,25 +17,29 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          bc bison build-essential cpio curl flex git kmod \
-          libssl-dev libncurses5-dev libelf-dev python3 \
-          unzip wget xz-utils
+          bc bison build-essential cpio curl flex git \
+          kmod libssl-dev libncurses5-dev libelf-dev \
+          python3 unzip wget xz-utils
 
-    - name: Clone Proton Clang toolchain
+    - name: Clone Proton Clang
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-    - name: Build kernel
+    - name: Build host tools with system GCC/LD
+      run: |
+        export ARCH=arm64
+        export SUBARCH=arm64
+        make O=out realme_defconfig
+        make O=out HOSTCC=gcc HOSTLD=ld
+
+    - name: Build kernel with Clang
       run: |
         export PATH="$PWD/clang/bin:$PATH"
         export ARCH=arm64
         export SUBARCH=arm64
+        export CROSS_COMPILE=aarch64-linux-gnu-
+        export CLANG_TRIPLE=aarch64-linux-gnu-
 
-        # Step 1: build defconfig and host tools (use system gcc/ld)
-        make O=out realme_defconfig
-        make O=out HOSTCC=gcc HOSTLD=ld
-
-        # Step 2: build kernel with clang
         make -j$(nproc) O=out \
           CC=clang \
           LD=ld.lld \
@@ -43,11 +47,9 @@ jobs:
           NM=llvm-nm \
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip \
-          CROSS_COMPILE=aarch64-linux-gnu- \
-          CLANG_TRIPLE=aarch64-linux-gnu-
+          STRIP=llvm-strip
 
-    - name: Upload kernel Image
+    - name: Upload Image
       uses: actions/upload-artifact@v4
       with:
         name: Kernel
