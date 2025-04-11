@@ -25,6 +25,11 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang proton-clang
 
+    - name: Restore missing touchscreen blob headers
+      run: |
+        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i
+        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i    
+
     - name: Generate defconfig (use system GCC for host tools)
       run: |
         make O=out ARCH=arm64 SUBARCH=arm64 realme_defconfig
