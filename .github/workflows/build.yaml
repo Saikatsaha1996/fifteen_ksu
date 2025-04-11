@@ -19,7 +19,7 @@ jobs:
         sudo apt-get install -y \
           bc bison build-essential cpio curl flex git \
           kmod libssl-dev libncurses5-dev libelf-dev \
-          python3 unzip wget xz-utils clang binutil
+          python3 unzip wget xz-utils clang binutils
 
     - name: Clone Proton Clang
       run: |
