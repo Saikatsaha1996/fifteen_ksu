@@ -108,7 +108,7 @@ jobs:
        curl -Lo tools/ufdt/utils/src/mkdtboimg.py https://android.googlesource.com/platform/system/libufdt/+/refs/heads/master/utils/src/mkdtboimg.py?format=TEXT
        base64 -d tools/ufdt/utils/src/mkdtboimg.py > tools/ufdt/utils/src/mkdtboimg_decoded.py
        chmod +x tools/ufdt/utils/src/mkdtboimg_decoded.py
-       python3 tools/ufdt/utils/src/mkdtboimg_decoded.py create --dtbo dtbo_output/*.dtbo --output dtbo.img --page_size=4096
+       python3 tools/ufdt/utils/src/mkdtboimg_decoded.py create --page_size 4096 dtbo_output/*.dtbo
        mv dtbo.img anykernel3/
         
     - name: Create flashable ZIP
