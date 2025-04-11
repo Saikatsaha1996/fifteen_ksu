@@ -31,10 +31,11 @@ jobs:
         export ARCH=arm64
         export SUBARCH=arm64
 
-        # Step 1: Build config and host tools (no CC override here)
+        # Step 1: build defconfig and host tools (use system gcc/ld)
         make O=out realme_defconfig
+        make O=out HOSTCC=gcc HOSTLD=ld
 
-        # Step 2: Build kernel with Clang
+        # Step 2: build kernel with clang
         make -j$(nproc) O=out \
           CC=clang \
           LD=ld.lld \
