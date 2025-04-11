@@ -88,14 +88,16 @@ jobs:
         python3 tools/ufdt/utils/src/mkdtboimg.py create dtbo.img dtbo_output/*.dtbo --page_size=4096
         mv dtbo.img anykernel3/
         
-    - name: Upload AnyKernel3 ZIP
+    - name: Create flashable ZIP
       run: |
         cd anykernel3
         zip -r9 kernel-flashable.zip * -x .git README.md *placeholder
+
+    - name: Upload AnyKernel3 ZIP
       uses: actions/upload-artifact@v4
       with:
-        name: Flashable-ZIP
-        path: anykernel3/kernel-flashable.zip
+       name: Flashable-ZIP
+       path: anykernel3/kernel-flashable.zip
 
     - name: Cleanup extra files
       run: |
