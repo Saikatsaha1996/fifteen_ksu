@@ -37,7 +37,7 @@ jobs:
         make -j$(nproc) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
-          CC=clang \
+          CC=$GITHUB_WORKSPACE/proton-clang/bin/clang \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
           CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -46,7 +46,7 @@ jobs:
           OBJCOPY=llvm-objcopy \
           OBJDUMP=llvm-objdump \
           STRIP=llvm-strip \
-          LD=ld.lld
+          LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
 
     - name: Upload Kernel Image
       uses: actions/upload-artifact@v4
