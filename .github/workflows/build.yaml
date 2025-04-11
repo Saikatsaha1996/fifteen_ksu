@@ -85,7 +85,7 @@ jobs:
         mkdir -p anykernel3/modules/vendor/lib/modules
         mkdir -p anykernel3/modules/vendor_dlkm/lib/modules
 
-        MODDIR=$(find modules_tmp/lib/modules/ -type d -name "*")
+        #MODDIR=$(find modules_tmp/lib/modules/ -type d -name "*")
 
         # Copy flattened modules and metadata
         cp -av flat_ko/*.ko anykernel3/modules/vendor/lib/modules/
