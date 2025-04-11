@@ -19,7 +19,7 @@ jobs:
         sudo apt-get install -y \
           bc bison build-essential cpio curl flex git \
           kmod libssl-dev libncurses5-dev libelf-dev \
-          python3 unzip wget xz-utils
+          python3 unzip wget xz-utils clang llvm*
 
     - name: Clone Proton Clang
       run: |
@@ -27,27 +27,51 @@ jobs:
 
     - name: Build host tools with system GCC/LD
       run: |
+        export PATH="$PWD/clang/bin:$PATH"
+        export SUBARCH=arm64
+        export CROSS_COMPILE="aarch64-linux-gnu-"
+        export CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
+        export CC="clang"
+        export AR="aarch64-linux-gnu-ar"
+        export AS="aarch64-linux-gnu-as"
+        export NM="aarch64-linux-gnu-nm"
+        export LD="aarch64-linux-gnu-ld"
+        export STRIP="aarch64-linux-gnu-strip"
+        export OBJCOPY="aarch64-linux-gnu-objcopy"
+        export OBJDUMP="aarch64-linux-gnu-objdump"
+        export OBJSIZE="aarch64-linux-gnu-size"
+        export READELF="aarch64-linux-gnu-readelf"
+        export HOSTCC="clang"
+        export HOSTCXX="clang++"
+        export HOSTAR="aarch64-linux-gnu-ar"
+        export CLANG_TRIPLE="aarch64-linux-gnu-"
         export ARCH=arm64
         export SUBARCH=arm64
         make O=out realme_defconfig
-        make O=out HOSTCC=gcc HOSTLD=ld
 
     - name: Build kernel with Clang
       run: |
         export PATH="$PWD/clang/bin:$PATH"
+        export SUBARCH=arm64
+        export CROSS_COMPILE="aarch64-linux-gnu-"
+        export CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
+        export CC="clang"
+        export AR="aarch64-linux-gnu-ar"
+        export AS="aarch64-linux-gnu-as"
+        export NM="aarch64-linux-gnu-nm"
+        export LD="aarch64-linux-gnu-ld"
+        export STRIP="aarch64-linux-gnu-strip"
+        export OBJCOPY="aarch64-linux-gnu-objcopy"
+        export OBJDUMP="aarch64-linux-gnu-objdump"
+        export OBJSIZE="aarch64-linux-gnu-size"
+        export READELF="aarch64-linux-gnu-readelf"
+        export HOSTCC="clang"
+        export HOSTCXX="clang++"
+        export HOSTAR="aarch64-linux-gnu-ar"
+        export CLANG_TRIPLE="aarch64-linux-gnu-"
         export ARCH=arm64
         export SUBARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export CLANG_TRIPLE=aarch64-linux-gnu-
-
-        make -j$(nproc) O=out \
-          CC=clang \
-          LD=ld.lld \
-          AR=llvm-ar \
-          NM=llvm-nm \
-          OBJCOPY=llvm-objcopy \
-          OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip
+        make -j$(nproc) O=out
 
     - name: Upload Image
       uses: actions/upload-artifact@v4
