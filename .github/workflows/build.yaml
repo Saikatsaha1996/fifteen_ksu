@@ -85,17 +85,16 @@ jobs:
         mkdir -p anykernel3/modules/vendor/lib/modules
         mkdir -p anykernel3/modules/vendor_dlkm/lib/modules
 
-        #MODDIR=$(find modules_tmp/lib/modules/ -type d -name "*")
-
-        # Copy flattened modules and metadata
+        # Copy flattened modules
         cp -av flat_ko/*.ko anykernel3/modules/vendor/lib/modules/
-        cp -av $MODDIR/modules.dep anykernel3/modules/vendor/lib/modules/
-        cp -av $MODDIR/modules.order anykernel3/modules/vendor/lib/modules/
-
         cp -av flat_ko/*.ko anykernel3/modules/vendor_dlkm/lib/modules/
-        cp -av $MODDIR/modules.dep anykernel3/modules/vendor_dlkm/lib/modules/
-        cp -av $MODDIR/modules.order anykernel3/modules/vendor_dlkm/lib/modules/
 
+        # Find and copy metadata (modules.dep and modules.order)
+        find modules_tmp/lib/modules/ -name "modules.dep" -exec cp {} anykernel3/modules/vendor/lib/modules/ \;
+        find modules_tmp/lib/modules/ -name "modules.order" -exec cp {} anykernel3/modules/vendor/lib/modules/ \;
+
+        cp anykernel3/modules/vendor/lib/modules/modules.dep anykernel3/modules/vendor_dlkm/lib/modules/
+        cp anykernel3/modules/vendor/lib/modules/modules.order anykernel3/modules/vendor_dlkm/lib/modules/
     - name: Copy kernel, dtb to AnyKernel3
       run: |
         cp out/arch/arm64/boot/Image AnyKernel3/
