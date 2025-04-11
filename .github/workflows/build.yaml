@@ -53,8 +53,50 @@ jobs:
           STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
           LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
 
-    - name: Upload Kernel Image
+    - name: Install kernel modules
+      run: |
+        mkdir -p modules_tmp
+        make O=out INSTALL_MOD_PATH=$PWD/modules_tmp modules_install
+        find modules_tmp/lib/modules/ -name "*.ko" -exec strip --strip-unneeded {} \;
+
+    - name: Prepare AnyKernel3 directory
+      run: |
+        git clone --depth=1 https://github.com/Saikatsaha1996/AnyKernel3 anykernel3
+        mkdir -p anykernel3/modules/vendor/lib/modules
+        mkdir -p anykernel3/modules/vendor_dlkm/lib/modules
+        MODDIR=$(find modules_tmp/lib/modules/ -type d -name "*")
+        cp -av $MODDIR/*.ko anykernel3/modules/vendor/lib/modules/
+        cp -av $MODDIR/modules.dep anykernel3/modules/vendor/lib/modules/
+        cp -av $MODDIR/modules.order anykernel3/modules/vendor/lib/modules/
+
+        cp -av $MODDIR/*.ko anykernel3/modules/vendor_dlkm/lib/modules/
+        cp -av $MODDIR/modules.dep anykernel3/modules/vendor_dlkm/lib/modules/
+        cp -av $MODDIR/modules.order anykernel3/modules/vendor_dlkm/lib/modules/
+        
+
+    - name: Copy kernel, dtb to AnyKernel3
+      run: |
+        cp out/arch/arm64/boot/Image AnyKernel3/
+        find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtb" -exec cat {} + > anykernel3/dtb
+
+    - name: Create dtbo.img
+      run: |
+        mkdir -p dtbo_output
+        find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtbo" -exec cp {} dtbo_output/ \;
+        git clone https://android.googlesource.com/platform/system/libufdt tools/ufdt
+        chmod +x tools/ufdt/utils/src/mkdtboimg.py
+        python3 tools/ufdt/utils/src/mkdtboimg.py create dtbo.img dtbo_output/*.dtbo --page_size=4096
+        mv dtbo.img anykernel3/
+        
+    - name: Upload AnyKernel3 ZIP
+      run: |
+        cd anykernel3
+        zip -r9 kernel-flashable.zip * -x .git README.md *placeholder
       uses: actions/upload-artifact@v4
       with:
-        name: Kernel
-        path: out/arch/arm64/boot/Image
+        name: Flashable-ZIP
+        path: anykernel3/kernel-flashable.zip
+
+    - name: Cleanup extra files
+      run: |
+        rm -rf modules_tmp dtbo_output tools mkdtboimg.py
