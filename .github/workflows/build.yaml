@@ -41,7 +41,7 @@ jobs:
           STRIP=llvm-strip
 
     - name: Upload zImage or Image.gz-dtb
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Kernel
         path: out/arch/arm64/boot/Image
