@@ -25,18 +25,15 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang proton-clang
 
-    - name: Export environment variables
-      run: |
-        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
-        echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "SUBARCH=arm64" >> $GITHUB_ENV
-
     - name: Generate defconfig (use system GCC for host tools)
       run: |
         make O=out ARCH=arm64 SUBARCH=arm64 realme_defconfig
 
     - name: Build kernel with Proton Clang
       run: |
+        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
         make -j$(nproc) O=out \
           ARCH=arm64 \
           SUBARCH=arm64 \
