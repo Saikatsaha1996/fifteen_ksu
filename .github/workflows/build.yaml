@@ -28,7 +28,13 @@ jobs:
     - name: Restore missing touchscreen blob headers
       run: |
         wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i
-        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i    
+        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i
+
+    - name: Alias python2 to python3
+      run: |
+        mkdir -p ~/bin
+        ln -sf $(which python3) ~/bin/python2
+        echo "PATH=$HOME/bin:$PATH" >> $GITHUB_ENV
 
     - name: Generate defconfig (use system GCC for host tools)
       run: |
