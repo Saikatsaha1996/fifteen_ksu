@@ -2,7 +2,7 @@ name: Kernel Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -13,35 +13,88 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v3
 
-    - name: Set up environment
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential cpio curl flex git kmod libssl-dev libncurses5-dev libelf-dev python3 unzip wget xz-utils
+        sudo apt-get install -y \
+          bc bison build-essential cpio curl flex git \
+          kmod libssl-dev libncurses5-dev libelf-dev \
+          python3 unzip wget xz-utils
 
-    - name: Clone toolchain
+    - name: Clone Proton Clang
       run: |
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang proton-clang
 
-    - name: Build kernel
+    - name: Restore missing touchscreen blob headers
       run: |
-        export PATH="$PWD/clang/bin:$PATH"
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export CLANG_TRIPLE=aarch64-linux-gnu-
+        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Cal_Test_app.i
+        wget https://github.com/pjgowtham/android_kernel_oneplus_sm8350/raw/lineage-22.2/drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i -O drivers/input/touchscreen/oplus_touchscreen_v2/Focal/ft3681/FT3681_Pramboot_V1.3_20211109.i    
 
-        make O=out realme_defconfig
+    - name: Generate defconfig (use system GCC for host tools)
+      run: |
+        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
+        make O=out lahaina-stable-v1_defconfig \
+          ARCH=arm64 \
+          SUBARCH=arm64 \
+          CC=$GITHUB_WORKSPACE/proton-clang/bin/clang \
+          CROSS_COMPILE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/proton-clang/bin/arm-linux-gnueabi- \
+          CLANG_TRIPLE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          AR=$GITHUB_WORKSPACE/proton-clang/bin/llvm-ar \
+          NM=$GITHUB_WORKSPACE/proton-clang/bin/llvm-nm \
+          OBJCOPY=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objcopy \
+          OBJDUMP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objdump \
+          STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
+          LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
+
+    - name: Build kernel with Proton Clang
+      run: |
+        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
         make -j$(nproc) O=out \
-          CC=clang \
-          LD=ld.lld \
-          AR=llvm-ar \
-          NM=llvm-nm \
-          OBJCOPY=llvm-objcopy \
-          OBJDUMP=llvm-objdump \
-          STRIP=llvm-strip
+          ARCH=arm64 \
+          SUBARCH=arm64 \
+          CC=$GITHUB_WORKSPACE/proton-clang/bin/clang \
+          CROSS_COMPILE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/proton-clang/bin/arm-linux-gnueabi- \
+          CLANG_TRIPLE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
+          AR=$GITHUB_WORKSPACE/proton-clang/bin/llvm-ar \
+          NM=$GITHUB_WORKSPACE/proton-clang/bin/llvm-nm \
+          OBJCOPY=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objcopy \
+          OBJDUMP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objdump \
+          STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
+          LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
 
-    - name: Upload zImage or Image.gz-dtb
-      uses: actions/upload-artifact@v3
+    - name: Copy kernel, dtb to AnyKernel3
+      run: |
+        cp out/arch/arm64/boot/Image anykernel3/
+        find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtb" -exec cat {} + > anykernel3/dtb
+
+    #- name: Create dtbo.img
+     # run: |
+       # mkdir -p dtbo_output
+        #find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtbo" -exec cat {} + > dtbo_output/dtbo
+      #  mkdir -p tools/ufdt/utils/src/
+        #curl -Lo tools/ufdt/utils/src/mkdtboimg.py.base64 "https://android.googlesource.com/platform/system/libufdt/+/refs/heads/master/utils/src/mkdtboimg.py?format=TEXT"
+        #base64 -d tools/ufdt/utils/src/mkdtboimg.py.base64 > tools/ufdt/utils/src/mkdtboimg_decoded.py
+       # chmod +x tools/ufdt/utils/src/mkdtboimg_decoded.py
+        #python3 tools/ufdt/utils/src/mkdtboimg_decoded.py create --page_size 4096 --output dtbo.img dtbo_output/dtbo
+       # mv dtbo.img anykernel3/
+        
+    - name: Create flashable ZIP
+      run: |
+        cd anykernel3
+        zip -r9 kernel-porsche.zip * -x .git README.md *placeholder
+
+    - name: Upload AnyKernel3 ZIP
+      uses: actions/upload-artifact@v4
       with:
-        name: Kernel
-        path: out/arch/arm64/boot/Image
+       name: Flashable-ZIP
+       path: anykernel3/kernel-porsche.zip
+
+    - name: Cleanup extra files
+      run: |
+        rm -rf modules_tmp dtbo_output tools mkdtboimg.py
