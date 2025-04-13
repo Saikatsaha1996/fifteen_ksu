@@ -59,20 +59,25 @@ jobs:
           STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
           LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
 
-    - name: Copy kernel, dtb , dtbo to AnyKernel3
-      run: |
-        git clone --depth=1 https://github.com/Saikatsaha1996/AnyKernel3 anykernel3
-        cp out/arch/arm64/boot/Image anykernel3/
-        cp out/arch/arm64/boot/dtbo.img anykernel3/
-        find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtb" -exec cat {} + > anykernel3/dtb
+    #- name: Copy kernel, dtb , dtbo to AnyKernel3
+     # run: |
+        #git clone --depth=1 https://github.com/Saikatsaha1996/AnyKernel3 anykernel3
+        #cp out/arch/arm64/boot/Image anykernel3/
+        #cp out/arch/arm64/boot/dtbo.img anykernel3/
+        #find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtb" -exec cat {} + > anykernel3/dtb
 
-    - name: Create flashable ZIP
-      run: |
-        cd anykernel3
-        zip -r9 kernel-porsche.zip * -x .git README.md *placeholder
+    #- name: Create flashable ZIP
+      #run: |
+        #cd anykernel3
+        #zip -r9 kernel-porsche.zip * -x .git README.md *placeholder
 
-    - name: Upload AnyKernel3 ZIP
+    #- name: Upload AnyKernel3 ZIP
+      #uses: actions/upload-artifact@v4
+      #with:
+       #name: Flashable-ZIP
+       #path: anykernel3/kernel-porsche.zip
+    - name: Upload zImage or Image.gz-dtb
       uses: actions/upload-artifact@v4
       with:
-       name: Flashable-ZIP
-       path: anykernel3/kernel-porsche.zip
+        name: Kernel
+        path: out/arch/arm64/boot/Image
