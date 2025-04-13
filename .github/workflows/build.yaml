@@ -2,7 +2,7 @@ name: Kernel Build
 
 on:
   push:
-    branches: [ gato ]
+    branches: [ hyp ]
   workflow_dispatch:
 
 jobs:
