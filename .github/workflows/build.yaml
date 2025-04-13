@@ -55,6 +55,7 @@ jobs:
 
     - name: Copy kernel, dtb to AnyKernel3
       run: |
+        git clone --depth=1 https://github.com/Saikatsaha1996/AnyKernel3 anykernel3
         cp out/arch/arm64/boot/Image anykernel3/
         find out/arch/arm64/boot/dts/vendor/oplus/porsche/ -name "*.dtb" -exec cat {} + > anykernel3/dtb
 
