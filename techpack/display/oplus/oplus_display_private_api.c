@@ -1990,14 +1990,17 @@ static int oplus_boe_data_dimming_process_unlock(int brightness, int enable)
 	if (!panel->is_hbm_enabled && oplus_datadimming_vblank_count != 0) {
 		drm_crtc_wait_one_vblank(dsi_connector->state->crtc);
 #if defined(OPLUS_FEATURE_PXLW_IRIS5)
-	    if (iris_is_chip_supported() && iris_is_pt_mode(panel)) {
-		    rc = iris_update_backlight(1, brightness);
-	    } else {
-#endif
+	if (iris_is_chip_supported() && iris_is_pt_mode(panel)) {
+		rc = iris_update_backlight(1, brightness);
+	} else {
 		rc = mipi_dsi_dcs_set_display_brightness(mipi_device, brightness);
 		drm_crtc_wait_one_vblank(dsi_connector->state->crtc);
-            }
-        }
+	}
+#else
+		rc = mipi_dsi_dcs_set_display_brightness(mipi_device, brightness);
+		drm_crtc_wait_one_vblank(dsi_connector->state->crtc);
+#endif
+	}
 
 	/* enable the clk vote for CMD mode panels */
 	if (display->config.panel_mode == DSI_OP_CMD_MODE) {
@@ -3082,7 +3085,7 @@ int dsi_display_oplus_set_power(struct drm_connector *connector,
 		/*switch to panel TP-VSYNC while exit aod scene*/
 		if (oplus_adfr_is_support()) {
 			if (power_mode == SDE_MODE_DPMS_LP1) {
-				if (oplus_adfr_get_vsync_mode() == OPLUS_TE_SOURCE_TP)
+				if (oplus_adfr_get_vsync_mode() == OPLUS_TE_TP_VSYNC)
 					sde_encoder_adfr_aod_fod_source_switch(display, OPLUS_TE_SOURCE_TE);
 			}
         }

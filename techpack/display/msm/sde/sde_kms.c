@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
@@ -983,7 +983,7 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 			old_mode = DRM_PANEL_BLANK_POWERDOWN;
 		}
 
-		if ((old_mode != new_mode) || (old_fps != new_fps)) {
+		if (old_mode != new_mode) {
 			struct drm_panel_notifier notifier_data;
 
 			SDE_EVT32(old_mode, new_mode, old_fps, new_fps,
@@ -1286,7 +1286,7 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 			sde_power_data_bus_set_quota(phandle, i,
 				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+				phandle->ib_quota[i]);
 		pm_runtime_put_sync(sde_kms->dev->dev);
 		sde_kms->splash_data.num_splash_displays--;
 	}
@@ -1312,7 +1312,7 @@ static void _sde_kms_release_splash_resource(struct sde_kms *sde_kms,
 		for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++)
 			sde_power_data_bus_set_quota(phandle, i,
 				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA,
-				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+				phandle->ib_quota[i]);
 
 		pm_runtime_put_sync(sde_kms->dev->dev);
 	}
@@ -3964,6 +3964,7 @@ static void _sde_kms_pm_suspend_idle_helper(struct sde_kms *sde_kms,
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct drm_connector *conn;
 	struct drm_connector_list_iter conn_iter;
+	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv = sde_kms->dev->dev_private;
 
 	drm_connector_list_iter_begin(ddev, &conn_iter);
@@ -3977,6 +3978,7 @@ static void _sde_kms_pm_suspend_idle_helper(struct sde_kms *sde_kms,
 		if (sde_encoder_in_clone_mode(conn->encoder))
 			continue;
 
+		sde_enc = to_sde_encoder_virt(conn->encoder);
 		crtc_id = drm_crtc_index(conn->state->crtc);
 		if (priv->disp_thread[crtc_id].thread)
 			kthread_flush_worker(
@@ -3994,6 +3996,14 @@ static void _sde_kms_pm_suspend_idle_helper(struct sde_kms *sde_kms,
 					&priv->event_thread[crtc_id].worker);
 			sde_encoder_idle_request(conn->encoder);
 		}
+
+		if (sde_enc->vblank_enabled) {
+			sde_encoder_wait_for_event(conn->encoder, MSM_ENC_VBLANK);
+			if (priv->event_thread[crtc_id].thread)
+				kthread_flush_worker(
+					&priv->event_thread[crtc_id].worker);
+		}
+
 	}
 	drm_connector_list_iter_end(&conn_iter);
 
@@ -4395,102 +4405,6 @@ static int _sde_kms_active_override(struct sde_kms *sde_kms, bool enable)
 	return 0;
 }
 
-static void _sde_kms_update_pm_qos_irq_request(struct sde_kms *sde_kms)
-{
-	struct device *cpu_dev;
-	int cpu = 0;
-	u32 cpu_irq_latency = sde_kms->catalog->perf.cpu_irq_latency;
-
-	if (cpumask_empty(&sde_kms->irq_cpu_mask)) {
-		SDE_DEBUG("%s: irq_cpu_mask is empty\n", __func__);
-		return;
-	}
-
-	for_each_cpu(cpu, &sde_kms->irq_cpu_mask) {
-		cpu_dev = get_cpu_device(cpu);
-		if (!cpu_dev) {
-			SDE_DEBUG("%s: failed to get cpu%d device\n", __func__,
-				cpu);
-			continue;
-		}
-
-		if (dev_pm_qos_request_active(&sde_kms->pm_qos_irq_req[cpu]))
-			dev_pm_qos_update_request(&sde_kms->pm_qos_irq_req[cpu],
-					cpu_irq_latency);
-		else
-			dev_pm_qos_add_request(cpu_dev,
-				&sde_kms->pm_qos_irq_req[cpu],
-				DEV_PM_QOS_RESUME_LATENCY,
-				cpu_irq_latency);
-	}
-}
-
-static void _sde_kms_remove_pm_qos_irq_request(struct sde_kms *sde_kms)
-{
-	struct device *cpu_dev;
-	int cpu = 0;
-
-	if (cpumask_empty(&sde_kms->irq_cpu_mask)) {
-		SDE_DEBUG("%s: irq_cpu_mask is empty\n", __func__);
-		return;
-	}
-
-	for_each_cpu(cpu, &sde_kms->irq_cpu_mask) {
-		cpu_dev = get_cpu_device(cpu);
-		if (!cpu_dev) {
-			SDE_DEBUG("%s: failed to get cpu%d device\n", __func__,
-				cpu);
-			continue;
-		}
-
-		if (dev_pm_qos_request_active(&sde_kms->pm_qos_irq_req[cpu]))
-			dev_pm_qos_remove_request(
-					&sde_kms->pm_qos_irq_req[cpu]);
-	}
-}
-
-void sde_kms_cpu_vote_for_irq(struct sde_kms *sde_kms, bool enable)
-{
-	struct msm_drm_private *priv = sde_kms->dev->dev_private;
-
-	mutex_lock(&priv->phandle.phandle_lock);
-
-	if (enable && atomic_inc_return(&sde_kms->irq_vote_count) == 1)
-		_sde_kms_update_pm_qos_irq_request(sde_kms);
-	else if (!enable && atomic_dec_return(&sde_kms->irq_vote_count) == 0)
-		_sde_kms_remove_pm_qos_irq_request(sde_kms);
-
-	mutex_unlock(&priv->phandle.phandle_lock);
-}
-
-static void sde_kms_irq_affinity_notify(
-		struct irq_affinity_notify *affinity_notify,
-		const cpumask_t *mask)
-{
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms = container_of(affinity_notify,
-					struct sde_kms, affinity_notify);
-
-	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private)
-		return;
-
-	priv = sde_kms->dev->dev_private;
-
-	mutex_lock(&priv->phandle.phandle_lock);
-
-	_sde_kms_remove_pm_qos_irq_request(sde_kms);
-	// save irq cpu mask
-	sde_kms->irq_cpu_mask = *mask;
-
-	// request vote with updated irq cpu mask
-	if (atomic_read(&sde_kms->irq_vote_count))
-		_sde_kms_update_pm_qos_irq_request(sde_kms);
-
-	mutex_unlock(&priv->phandle.phandle_lock);
-}
-
-static void sde_kms_irq_affinity_release(struct kref *ref) {}
-
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
 {
 	struct sde_kms *sde_kms = usr;
@@ -4606,12 +4520,6 @@ static int _sde_kms_get_splash_data(struct sde_kms *sde_kms,
 	num_displays = dsi_display_get_num_of_displays()
 				+ dp_display_get_num_of_boot_displays();
 	num_regions = of_property_count_u64_elems(node, "reg") / 2;
-
-	if (num_displays > MAX_DSI_DISPLAYS) {
-		SDE_ERROR("invalid number of built in displays %d\n",
-				num_displays);
-		return -EINVAL;
-	}
 
 	data->num_splash_displays = num_displays;
 
@@ -4973,7 +4881,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct platform_device *platformdev;
-	int irq_num, rc = -EINVAL;
+	int rc = -EINVAL;
 
 	if (!kms) {
 		SDE_ERROR("invalid kms\n");
@@ -5015,19 +4923,11 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 
 	atomic_set(&sde_kms->detach_sec_cb, 0);
 	atomic_set(&sde_kms->detach_all_cb, 0);
-	atomic_set(&sde_kms->irq_vote_count, 0);
 
 	/*
 	 * Support format modifiers for compression etc.
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
-
-	sde_kms->affinity_notify.notify = sde_kms_irq_affinity_notify;
-	sde_kms->affinity_notify.release = sde_kms_irq_affinity_release;
-
-	irq_num = platform_get_irq(to_platform_device(sde_kms->dev->dev), 0);
-	SDE_DEBUG("Registering for notification of irq_num: %d\n", irq_num);
-	irq_set_affinity_notifier(irq_num, &sde_kms->affinity_notify);
 
 	if (sde_in_trusted_vm(sde_kms)) {
 		rc = sde_vm_trusted_init(sde_kms);
@@ -5200,4 +5100,27 @@ int sde_kms_handle_recovery(struct drm_encoder *encoder)
 {
 	SDE_EVT32(DRMID(encoder), MSM_ENC_ACTIVE_REGION);
 	return sde_encoder_wait_for_event(encoder, MSM_ENC_ACTIVE_REGION);
+}
+
+void sde_kms_trigger_early_wakeup(struct sde_kms *sde_kms,
+		struct drm_crtc *crtc)
+{
+	struct msm_drm_private *priv;
+	struct drm_encoder *drm_enc;
+
+	if (!sde_kms || !crtc) {
+		SDE_ERROR("invalid argument sde_kms %pK crtc %pK\n",
+			sde_kms, crtc);
+		return;
+	}
+
+	priv = sde_kms->dev->dev_private;
+
+	SDE_ATRACE_BEGIN("sde_kms_trigger_early_wakeup");
+	drm_for_each_encoder_mask(drm_enc, crtc->dev, crtc->state->encoder_mask)
+		sde_encoder_trigger_early_wakeup(drm_enc);
+
+	if (sde_kms->first_kickoff)
+		sde_power_scale_reg_bus(&priv->phandle, VOTE_INDEX_HIGH, false);
+	SDE_ATRACE_END("sde_kms_trigger_early_wakeup");
 }

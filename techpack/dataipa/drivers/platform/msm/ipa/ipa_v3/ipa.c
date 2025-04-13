@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -237,18 +237,6 @@ static void ipa_pci_io_resume(struct pci_dev *pci_dev)
 {
 }
 
-#ifndef CONFIG_PCI
-static inline void pci_release_region(struct pci_dev *pci_dev, int bar)
-{
-}
-
-static inline int pci_request_region(struct pci_dev *pci_dev, int bar,
-				     const char *res_name)
-{
-	return -EINVAL;
-}
-#endif
-
 /* PCI Error Recovery */
 static const struct pci_error_handlers ipa_pci_err_handler = {
 	.error_detected = ipa_pci_io_error_detected,
@@ -468,7 +456,7 @@ EXPORT_SYMBOL(ipa_smmu_free_sgt);
 
 static int ipa_pm_notify(struct notifier_block *b, unsigned long event, void *p)
 {
-	IPADBG("Entry\n");
+	IPAERR("Entry\n");
 	switch (event) {
 		case PM_POST_SUSPEND:
 #ifdef CONFIG_DEEPSLEEP
@@ -480,7 +468,7 @@ static int ipa_pm_notify(struct notifier_block *b, unsigned long event, void *p)
 #endif
 			break;
 	}
-	IPADBG("Exit\n");
+	IPAERR("Exit\n");
 	return NOTIFY_DONE;
 }
 
@@ -5827,6 +5815,7 @@ void ipa3_dec_client_disable_clks_delay_wq(
 		&ipa_dec_clients_disable_clks_on_suspend_irq_wq_work, delay))
 		IPAERR("Scheduling delayed work failed\n");
 }
+#ifndef CONFIG_DISABLE_IPA_WAKELOCKS
 /**
  * ipa3_inc_acquire_wakelock() - Increase active clients counter, and
  * acquire wakelock if necessary
@@ -5867,6 +5856,16 @@ void ipa3_dec_release_wakelock(void)
 		__pm_relax(ipa3_ctx->w_lock);
 	spin_unlock_irqrestore(&ipa3_ctx->wakelock_ref_cnt.spinlock, flags);
 }
+#else
+inline void ipa3_inc_acquire_wakelock(void)
+{
+	pr_debug("%s: Stub ipa wakelock fn\n", __func__);
+}
+inline void ipa3_dec_release_wakelock(void)
+{
+	pr_debug("%s: Stub ipa wakelock fn\n", __func__);
+}
+#endif
 
 int ipa3_set_clock_plan_from_pm(int idx)
 {
@@ -7371,13 +7370,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->stats.page_recycle_stats[0].tmp_alloc = 0;
 	ipa3_ctx->stats.page_recycle_stats[1].total_replenished = 0;
 	ipa3_ctx->stats.page_recycle_stats[1].tmp_alloc = 0;
-	memset(ipa3_ctx->stats.page_recycle_cnt, 0,
-		sizeof(ipa3_ctx->stats.page_recycle_cnt));
-	ipa3_ctx->stats.num_sort_tasklet_sched[0] = 0;
-	ipa3_ctx->stats.num_sort_tasklet_sched[1] = 0;
-	ipa3_ctx->stats.num_sort_tasklet_sched[2] = 0;
-	ipa3_ctx->stats.num_of_times_wq_reschd = 0;
-	ipa3_ctx->stats.page_recycle_cnt_in_tasklet = 0;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 	ipa3_ctx->ee = resource_p->ee;
@@ -7567,17 +7559,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 
 	/* Enable ipa3_ctx->enable_napi_chain */
 	ipa3_ctx->enable_napi_chain = 1;
-
-	/* Initialize Page poll threshold. */
-	ipa3_ctx->page_poll_threshold = IPA_PAGE_POLL_DEFAULT_THRESHOLD;
-
-	/*Initialize number napi without prealloc buff*/
-	ipa3_ctx->ipa_max_napi_sort_page_thrshld = IPA_MAX_NAPI_SORT_PAGE_THRSHLD;
-	ipa3_ctx->page_wq_reschd_time = IPA_MAX_PAGE_WQ_RESCHED_TIME;
-
-	/* Use common page pool for Def/Coal pipe. */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_9)
-		ipa3_ctx->wan_common_page_pool = true;
 
 	/* assume clock is on in virtual/emulation mode */
 	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
@@ -8217,7 +8198,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_mhi_dynamic_config = false;
 	ipa_drv_res->use_64_bit_dma_mask = false;
 	ipa_drv_res->use_bw_vote = false;
-	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ_WAN;
+	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->lan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 	ipa_drv_res->apply_rg10_wa = false;
 	ipa_drv_res->gsi_ch20_wa = false;
