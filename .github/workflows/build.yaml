@@ -32,22 +32,7 @@ jobs:
 
     - name: Generate defconfig (use system GCC for host tools)
       run: |
-        echo "PATH=$GITHUB_WORKSPACE/proton-clang/bin:$PATH" >> $GITHUB_ENV
-        echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "SUBARCH=arm64" >> $GITHUB_ENV
-        make O=out lahaina-stable-v1_defconfig \
-          ARCH=arm64 \
-          SUBARCH=arm64 \
-          CC=$GITHUB_WORKSPACE/proton-clang/bin/clang \
-          CROSS_COMPILE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=$GITHUB_WORKSPACE/proton-clang/bin/arm-linux-gnueabi- \
-          CLANG_TRIPLE=$GITHUB_WORKSPACE/proton-clang/bin/aarch64-linux-gnu- \
-          AR=$GITHUB_WORKSPACE/proton-clang/bin/llvm-ar \
-          NM=$GITHUB_WORKSPACE/proton-clang/bin/llvm-nm \
-          OBJCOPY=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objcopy \
-          OBJDUMP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-objdump \
-          STRIP=$GITHUB_WORKSPACE/proton-clang/bin/llvm-strip \
-          LD=$GITHUB_WORKSPACE/proton-clang/bin/ld.lld
+        make O=out ARCH=arm64 SUBARCH=arm64 lahaina-stable-v1_defconfig
 
     - name: Build kernel with Proton Clang
       run: |
