@@ -2,7 +2,7 @@ name: Kernel Build
 
 on:
   push:
-    branches: [ gato ]
+    branches: [ cgroup2 ]
   workflow_dispatch:
 
 jobs:
