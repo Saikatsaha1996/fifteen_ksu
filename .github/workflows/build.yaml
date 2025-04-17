@@ -2,7 +2,7 @@ name: Kernel Build
 
 on:
   push:
-    branches: [ cgroup2 ]
+    branches: [ ]
   workflow_dispatch:
 
 jobs:
