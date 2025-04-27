@@ -38,7 +38,7 @@ jobs:
 
     - name: Generate defconfig (use system GCC for host tools)
       run: |
-        make O=out ARCH=arm64 SUBARCH=arm64 porsche_defconfig
+        make O=out ARCH=arm64 SUBARCH=arm64 stock_defconfig
 
     - name: Build kernel with Proton Clang
       run: |
