@@ -2,7 +2,7 @@ name: Kernel Build
 
 on:
   push:
-    branches: [ lindrod ]
+    branches: [ lindro ]
   workflow_dispatch:
 
 jobs:
